@@ -49,6 +49,23 @@ Sans `-Release`, l'installeur est produit mais rien n'est publié.
 `tag de la release` (ex. `v2.1.0`) à la version compilée : une release taguée
 avec une version inférieure ou égale est ignorée.
 
+### Contrôles automatiques
+
+`build.ps1` refuse de produire un installeur incomplet. Deux vérifications, nées
+de la v2.0.1 qui fut publiée amputée de deux DLL :
+
+1. **Attribut « caché » normalisé.** Les fichiers du cache NuGet le portent
+   parfois ; MSBuild le préserve en copiant, et le scan par jokers d'Inno Setup
+   **ignore silencieusement les fichiers cachés**. `Hardcodet.NotifyIcon.Wpf.dll`
+   et `CommunityToolkit.Mvvm.dll` avaient ainsi disparu de l'installeur.
+2. **Deux comptages croisés.** Toute assembly déclarée dans `Altechap.deps.json`
+   doit exister dans `dist\app`, et le nombre de fichiers empaquetés par Inno
+   Setup doit égaler le nombre de fichiers source. Un écart interrompt le build.
+
+Si le build s'arrête sur l'un de ces contrôles, ne le contournez pas :
+l'installeur produit planterait au démarrage sur un `FileNotFoundException`,
+sans message exploitable pour l'utilisateur.
+
 ---
 
 ## 4. Ce que vit l'utilisateur

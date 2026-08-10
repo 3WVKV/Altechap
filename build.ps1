@@ -85,8 +85,44 @@ if ($LASTEXITCODE -ne 0) { throw 'dotnet publish a échoué.' }
 
 $exe = Join-Path $appDir 'Altechap.exe'
 if (-not (Test-Path $exe)) { throw "Altechap.exe introuvable dans $appDir" }
-$sizeMb = [math]::Round(((Get-ChildItem $appDir -Recurse | Measure-Object Length -Sum).Sum / 1MB), 1)
+$sizeMb = [math]::Round(((Get-ChildItem $appDir -Recurse -Force | Measure-Object Length -Sum).Sum / 1MB), 1)
 Ok "Publié dans dist\app ($sizeMb Mo)"
+
+# ── 2 bis. Contrôle d'intégrité de la publication ────────────────────────────
+# Deux pièges silencieux, découverts en v2.0.1 : un installeur amputé de deux
+# DLL s'était retrouvé publié, et l'application plantait au démarrage chez
+# l'utilisateur sans qu'aucune étape n'ait signalé quoi que ce soit.
+Step 'Vérification de la publication'
+
+# 1) Les fichiers du cache NuGet portent parfois l'attribut « caché ». MSBuild
+#    le préserve en copiant, et le scan par jokers d'Inno Setup ignore les
+#    fichiers cachés : les dépendances disparaissaient de l'installeur.
+$hidden = Get-ChildItem $appDir -Recurse -File -Force |
+          Where-Object { $_.Attributes -band [IO.FileAttributes]::Hidden }
+foreach ($f in $hidden) {
+    $f.Attributes = $f.Attributes -band (-bnot [IO.FileAttributes]::Hidden)
+}
+if ($hidden.Count -gt 0) { Ok "$($hidden.Count) fichier(s) caché(s) normalisé(s)" }
+
+# 2) Toute assembly déclarée dans deps.json doit exister sur le disque, sinon
+#    le démarrage échoue sur un FileNotFoundException.
+$deps    = Get-Content (Join-Path $appDir 'Altechap.deps.json') -Raw | ConvertFrom-Json
+$missing = @()
+foreach ($target in $deps.targets.PSObject.Properties) {
+    foreach ($lib in $target.Value.PSObject.Properties) {
+        if (-not $lib.Value.runtime) { continue }
+        foreach ($asm in $lib.Value.runtime.PSObject.Properties.Name) {
+            $leaf = Split-Path $asm -Leaf
+            if (-not (Test-Path (Join-Path $appDir $leaf))) { $missing += $leaf }
+        }
+    }
+}
+$missing = @($missing | Sort-Object -Unique)
+if ($missing.Count -gt 0) {
+    throw "Dépendances déclarées dans deps.json mais absentes de dist\app :`n  " +
+          ($missing -join "`n  ")
+}
+Ok "$((Get-ChildItem $appDir -Recurse -File).Count) fichiers, dépendances complètes"
 
 if ($SkipInstaller) { Write-Host "`nTerminé (installeur ignoré)." -ForegroundColor Yellow; return }
 
@@ -108,12 +144,22 @@ Installez-le puis relancez :   winget install -e --id JRSoftware.InnoSetup
 '@
 }
 
-& $iscc "/DAppVersion=$Version" "/DSourceDir=$appDir" "/DOutputDir=$dist" $iss
-if ($LASTEXITCODE -ne 0) { throw 'ISCC a échoué.' }
+$isccLog = & $iscc "/DAppVersion=$Version" "/DSourceDir=$appDir" "/DOutputDir=$dist" $iss 2>&1
+if ($LASTEXITCODE -ne 0) { $isccLog | Select-Object -Last 20; throw 'ISCC a échoué.' }
 
 $setup = Join-Path $dist "Altechap-Setup-$Version.exe"
 if (-not (Test-Path $setup)) { throw "Installeur introuvable : $setup" }
-Ok "Installeur : $setup ($([math]::Round((Get-Item $setup).Length / 1MB, 1)) Mo)"
+
+# Inno Setup n'avertit pas quand son scan par jokers laisse des fichiers de
+# côté : il faut compter ce qu'il a réellement empaqueté et le confronter à la
+# source. C'est ce contrôle qui aurait évité la v2.0.1 défaillante.
+$packed   = @($isccLog | Where-Object { $_ -match '^\s*Compressing:' }).Count
+$expected = (Get-ChildItem $appDir -Recurse -File -Force).Count
+if ($packed -ne $expected) {
+    throw "L'installeur ne contient que $packed fichiers sur les $expected de dist\app. " +
+          "Fichiers ignorés par Inno Setup (attribut caché ?) — installeur non publiable."
+}
+Ok "Installeur : $setup ($([math]::Round((Get-Item $setup).Length / 1MB, 1)) Mo, $packed fichiers)"
 
 # ── 4. Release GitHub ────────────────────────────────────────────────────────
 if (-not $Release) {
