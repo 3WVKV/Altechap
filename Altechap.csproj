@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationIcon>Resources\icon.ico</ApplicationIcon>
+    <!-- AssemblyName = nom du fichier .exe généré -->
+    <AssemblyName>Altechap</AssemblyName>
+    <RootNamespace>Altechap</RootNamespace>
+    <!-- Aucun AssemblyInfo.cs manuel dans le projet : on laisse le SDK générer
+         les attributs de version, lus au runtime pour l'afficher dans l'UI. -->
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <Version>2.0.0</Version>
+    <Optimize>true</Optimize>
+    <!-- Publication autonome : le runtime .NET est embarqué, l'installeur ne
+         dépend de rien sur le poste cible. On ne garde que les ressources
+         localisées utiles — les 13 autres langues pèsent ~15 Mo pour rien. -->
+    <SatelliteResourceLanguages>fr;en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <!-- Le projet de tests vit dans Tests/ : sans cette exclusion il serait aspiré
+       par le glob **/*.cs du SDK et compilé dans l'application. -->
+  <ItemGroup>
+    <Compile Remove="Tests/**" />
+    <None    Remove="Tests/**" />
+    <Page    Remove="Tests/**" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+    <PackageReference Include="System.Text.Json"      Version="8.0.5" />
+    <PackageReference Include="Hardcodet.NotifyIcon.Wpf" Version="1.1.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\icon.ico" />
+    <Resource Include="Resources\logo.png" />
+    <!-- Icônes de classe embarquées : plus de dépendance réseau au premier lancement -->
+    <EmbeddedResource Include="Resources\icons\*.png" />
+  </ItemGroup>
+</Project>

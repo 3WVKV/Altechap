@@ -1,0 +1,552 @@
+<Window x:Class="Altechap.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:h="clr-namespace:Altechap.Helpers"
+        xmlns:c="clr-namespace:Altechap.Converters"
+        Title="Altéchap — 3WVKV" Icon="/Resources/icon.ico" Height="700" Width="500"
+        MinWidth="460" MinHeight="480"
+        Background="#D9D2C3"
+        Foreground="#2D1A00"
+        Closing="Window_Closing"
+        WindowStyle="SingleBorderWindow"
+        AllowsTransparency="False"
+        Topmost="{Binding AlwaysOnTop}">
+    <Window.Resources>
+        <c:BoolVis        x:Key="BVis"/>
+        <c:InvBoolVis     x:Key="IBVis"/>
+        <c:HasItemsVis    x:Key="HIVis"/>
+        <c:EmptyListVis   x:Key="ELVis"/>
+        <c:InvBool        x:Key="IBool"/>
+        <c:NullVis        x:Key="NVis"/>
+        <c:LinkedBrush    x:Key="LBrush"/>
+        <c:LinkedText     x:Key="LText"/>
+        <c:CurrentBorder  x:Key="CBorder"/>
+        <c:HexBrush       x:Key="HexBrush"/>
+        <c:EnabledOpacity x:Key="EOpc"/>
+        <c:PathToImage    x:Key="PathToImg"/>
+        <c:ImageToVis     x:Key="ImgVis"/>
+        <c:ImageToInvVis  x:Key="ImgInvVis"/>
+        <!-- RB template et styles Btn* définis globalement dans App.xaml -->
+
+        <Style TargetType="ListBoxItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Padding"  Value="0"/>
+            <Setter Property="Margin"   Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <ContentPresenter/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid Background="#D9D2C3">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>   <!-- persos hors ligne -->
+            <RowDefinition Height="Auto"/>   <!-- footer -->
+        </Grid.RowDefinitions>
+
+        <!-- HEADER -->
+        <Border Grid.Row="0" Padding="14,12" BorderBrush="#B8A888" BorderThickness="0,0,0,2">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="#E8DDD0" Offset="0"/>
+                    <GradientStop Color="#D9CDB8" Offset="1"/>
+                </LinearGradientBrush>
+            </Border.Background>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <!-- Grid (et non StackPanel) : le titre/statut est tronqué proprement
+                     quand la fenêtre est étroite, au lieu de rogner les boutons -->
+                <Grid VerticalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="0" Width="44" Height="44" CornerRadius="22"
+                            Margin="0,0,12,0" VerticalAlignment="Center"
+                            BorderBrush="#F5B942" BorderThickness="2.5">
+                        <Border.Background>
+                            <ImageBrush ImageSource="/Resources/logo.png" Stretch="UniformToFill"/>
+                        </Border.Background>
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,8,0">
+                        <TextBlock FontSize="16" FontWeight="Bold" Foreground="#6B3516"
+                                   TextTrimming="CharacterEllipsis"><Run Text="Altéchap"/><Run Text=" — " Foreground="#B8A888"/><Run Text="3WVKV" Foreground="#9C7A58" FontSize="12" FontWeight="Normal"/></TextBlock>
+                        <TextBlock Text="{Binding Status}" FontSize="10" Foreground="#9C7A58"
+                                   TextTrimming="CharacterEllipsis" ToolTip="{Binding Status}"/>
+                        <!-- Version : sans elle, impossible de savoir quelle build tourne.
+                             Cliquable → vérification manuelle des mises à jour. -->
+                        <TextBlock x:Name="TxtVersion" FontSize="9" Foreground="#B8A888"
+                                   TextTrimming="CharacterEllipsis" Cursor="Hand"
+                                   MouseLeftButtonUp="Version_Click">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Foreground" Value="#8C7355"/>
+                                            <Setter Property="TextDecorations" Value="Underline"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+                </Grid>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- Épinglage : la fenêtre reste au-dessus de Dofus -->
+                    <ToggleButton IsChecked="{Binding AlwaysOnTop, Mode=TwoWay}" Cursor="Hand"
+                                  ToolTip="Garder Altéchap au-dessus des autres fenêtres">
+                        <ToggleButton.Template>
+                            <ControlTemplate TargetType="ToggleButton">
+                                <Border x:Name="bd" CornerRadius="8" Background="Transparent"
+                                        Width="32" Height="32">
+                                    <TextBlock x:Name="gl" Text="📌" FontSize="14" Opacity="0.35"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsChecked" Value="True">
+                                        <Setter TargetName="bd" Property="Background" Value="#C8E8DF"/>
+                                        <Setter TargetName="gl" Property="Opacity"    Value="1"/>
+                                    </Trigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="gl" Property="Opacity" Value="0.85"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </ToggleButton.Template>
+                    </ToggleButton>
+
+                    <Button Style="{StaticResource BtnIcon}" Click="Hotkeys_Click"
+                            ToolTip="Raccourcis clavier" Foreground="#9C7A58">⌨</Button>
+
+                    <Button Style="{StaticResource BtnPrimary}" Margin="8,0,0,0"
+                            Command="{Binding ScanNowCommand}"
+                            IsEnabled="{Binding Scanning, Converter={StaticResource IBool}}"
+                            Padding="14,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="↺ " FontSize="13" FontWeight="Bold"/>
+                            <TextBlock Text="Actualiser" FontSize="12" FontWeight="Bold"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- INITIATIVE -->
+        <Border Grid.Row="1" Padding="14,9" BorderBrush="#B8A888" BorderThickness="0,0,0,1"
+                Visibility="{Binding LinkedCharacters.Count, Converter={StaticResource HIVis}}">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="#C8E8DF" Offset="0"/>
+                    <GradientStop Color="#BDE0D6" Offset="1"/>
+                </LinearGradientBrush>
+            </Border.Background>
+            <StackPanel>
+                <TextBlock Text="ORDRE D&apos;INITIATIVE (ACTIFS)" FontSize="9"
+                           Foreground="#0F8F6D" Margin="0,0,0,3" FontWeight="Bold"/>
+                <TextBlock Text="{Binding InitiativeText, FallbackValue=&apos;—&apos;}"
+                           FontSize="11" Foreground="#0F6B50"
+                           TextWrapping="Wrap" FontFamily="Consolas"/>
+            </StackPanel>
+        </Border>
+
+        <!-- PROFILS -->
+        <Border Grid.Row="2" Padding="12,9" BorderBrush="#B8A888" BorderThickness="0,0,0,1"
+                Background="#E0D8CA"
+                Visibility="{Binding LinkedCharacters.Count, Converter={StaticResource HIVis}}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Profil" VerticalAlignment="Center"
+                           Foreground="#6B3516" FontSize="11" FontWeight="Bold" Margin="0,0,10,0"/>
+                <Grid Grid.Column="1" Margin="0,0,8,0">
+                    <Grid x:Name="ProfileDisplay">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <ComboBox ItemsSource="{Binding Profiles}"
+                                  SelectedItem="{Binding ActiveProfile}"
+                                  Background="#C4B89A" Foreground="#2D1A00"
+                                  BorderBrush="#A89070" BorderThickness="1.5"
+                                  Padding="8,5" Height="32" FontSize="12">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Name}" Foreground="#2D1A00" FontSize="12"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <Button Grid.Column="1" Style="{StaticResource BtnGhost}" Margin="6,0,0,0"
+                                ToolTip="Renommer ce profil"
+                                Click="RenameProfile_Click" Foreground="#6B3516">✎</Button>
+                    </Grid>
+                    <Border x:Name="ProfileEdit" CornerRadius="8"
+                            Background="#C4B89A" BorderBrush="#19B88A" BorderThickness="2"
+                            Padding="6,4" Visibility="Collapsed">
+                        <TextBox x:Name="TxtProfileName" Background="Transparent"
+                                 Foreground="#2D1A00" BorderThickness="0"
+                                 FontSize="12" CaretBrush="#F5B942"
+                                 KeyDown="ProfileName_KeyDown"
+                                 LostFocus="ProfileName_LostFocus"/>
+                    </Border>
+                </Grid>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Style="{StaticResource BtnTeal}" Margin="0,0,5,0"
+                            Command="{Binding AddProfileCommand}" ToolTip="Nouveau profil"
+                            FontWeight="Bold" FontSize="15">+</Button>
+                    <Button Style="{StaticResource BtnGhost}" Margin="0,0,5,0"
+                            Command="{Binding DuplicateProfileCommand}" ToolTip="Dupliquer le profil">⧉</Button>
+                    <Button Style="{StaticResource BtnGhost}" Margin="0,0,5,0"
+                            Command="{Binding SaveOrderToProfileCommand}" ToolTip="Sauvegarder l&apos;ordre"
+                            Foreground="#0F8F6D">💾</Button>
+                    <Button Style="{StaticResource BtnDanger}"
+                            Command="{Binding DeleteProfileCommand}" ToolTip="Supprimer">✕</Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- LISTE -->
+        <Grid Grid.Row="3" Background="#D9D2C3" PreviewMouseWheel="ListArea_PreviewMouseWheel">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Visibility="{Binding LinkedCharacters.Count, Converter={StaticResource ELVis}}">
+                <Border Width="90" Height="90" CornerRadius="45"
+                        HorizontalAlignment="Center" Margin="0,0,0,18" Opacity="0.25">
+                    <Border.Background>
+                        <ImageBrush ImageSource="/Resources/logo.png" Stretch="UniformToFill"/>
+                    </Border.Background>
+                </Border>
+                <TextBlock Text="Aucune fenêtre Dofus détectée"
+                           FontSize="14" Foreground="#9C7A58"
+                           HorizontalAlignment="Center" Margin="0,0,0,6"/>
+                <TextBlock Text="Lancez Dofus puis cliquez Actualiser"
+                           FontSize="11" Foreground="#B8A888"
+                           HorizontalAlignment="Center" Margin="0,0,0,20"/>
+                <Button Style="{StaticResource BtnPrimary}" HorizontalAlignment="Center"
+                        Command="{Binding ScanNowCommand}"
+                        IsEnabled="{Binding Scanning, Converter={StaticResource IBool}}"
+                        Padding="18,0" FontSize="13">↺  Rechercher les instances Dofus</Button>
+            </StackPanel>
+
+            <Grid Visibility="{Binding LinkedCharacters.Count, Converter={StaticResource HIVis}}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Grid Grid.Row="0" Margin="14,8,14,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock VerticalAlignment="Center" FontSize="10" Foreground="#9C7A58">
+                        <Run Text="{Binding LinkedCharacters.Count, Mode=OneWay}"/>
+                        <Run Text=" compte(s) · clic = focus · glisser = réordonner"/>
+                    </TextBlock>
+                    <Button Grid.Column="1" Style="{StaticResource BtnTeal}" Tag="8"
+                            Command="{Binding AddCharacterCommand}" FontSize="11">+ Ajouter</Button>
+                </Grid>
+                <ScrollViewer Grid.Row="1" x:Name="CharScrollViewer" VerticalScrollBarVisibility="Auto" Padding="10,0,10,10">
+                    <ListBox x:Name="CharList" ItemsSource="{Binding LinkedCharacters}"
+                             Background="Transparent" BorderThickness="0"
+                             h:DragDropBehavior.Enabled="True"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             HorizontalContentAlignment="Stretch">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                              <!-- DragHost : enveloppe neutre qui porte le retour visuel du drag.
+                                   Bordure 2px transparente en permanence → aucun décalage
+                                   de layout quand le halo s'allume. -->
+                              <Border x:Name="DragHost" Margin="0,0,0,8" CornerRadius="18"
+                                      Background="Transparent" BorderBrush="Transparent"
+                                      BorderThickness="3" Padding="1" RenderTransformOrigin="0.5,0.5">
+                                <Border CornerRadius="14" Padding="8,8"
+                                        Opacity="{Binding Enabled, Converter={StaticResource EOpc}}"
+                                        Cursor="Hand">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                            <GradientStop Color="#EDE6D8" Offset="0"/>
+                                            <GradientStop Color="#E5DDD0" Offset="1"/>
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                    <Border.BorderThickness>3,0,0,0</Border.BorderThickness>
+                                    <Border.BorderBrush>
+                                        <MultiBinding Converter="{StaticResource CBorder}">
+                                            <Binding/>
+                                            <Binding Path="DataContext.Current"
+                                                     RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                        </MultiBinding>
+                                    </Border.BorderBrush>
+                                    <Border.Effect>
+                                        <DropShadowEffect Color="#B8A888" Opacity="0.18"
+                                                          BlurRadius="8" ShadowDepth="2"/>
+                                    </Border.Effect>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="34"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                            <Border Width="28" Height="28" CornerRadius="14"
+                                                    Background="{Binding ClassColor, Converter={StaticResource HexBrush}}"
+                                                    ToolTip="{Binding ClassName}">
+                                                <Grid>
+                                                    <Image Width="18" Height="18"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           Source="{Binding ClassIconPath, Converter={StaticResource PathToImg}}"
+                                                           Visibility="{Binding ClassIconPath, Converter={StaticResource PathToImg}, ConverterParameter=vis}"/>
+                                                    <TextBlock Text="{Binding ClassInitial}" FontSize="13" FontWeight="Bold"
+                                                               Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                        <TextBlock.Visibility>
+                                                            <Binding Path="ClassIconPath" Converter="{StaticResource PathToImg}" ConverterParameter="inv"/>
+                                                        </TextBlock.Visibility>
+                                                    </TextBlock>
+                                                </Grid>
+                                            </Border>
+                                            <Ellipse Width="7" Height="7" Margin="0,3,0,0" HorizontalAlignment="Center"
+                                                     Fill="{Binding IsLinked, Converter={StaticResource LBrush}}"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="6,0,4,0">
+                                            <!-- Grid (et non StackPanel) : le pseudo est tronqué au lieu
+                                                 de déborder sur les boutons d'action à droite.
+                                                 Pas de poignée de drag : toute la carte est saisissable. -->
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="14" FontWeight="SemiBold"
+                                                           Foreground="#2D1A00" VerticalAlignment="Center"
+                                                           TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}"/>
+                                                <Border Grid.Column="1" CornerRadius="10" Padding="6,2" Margin="7,0,0,0"
+                                                        VerticalAlignment="Center"
+                                                        Background="{Binding ClassColor, Converter={StaticResource HexBrush}}"
+                                                        Visibility="{Binding ClassName, Converter={StaticResource NVis}}"
+                                                        Opacity="0.92">
+                                                    <TextBlock Text="{Binding ClassName}" FontSize="10" Foreground="White"/>
+                                                </Border>
+                                            </Grid>
+                                            <TextBlock FontSize="10" Margin="0,3,0,0"
+                                                       Text="{Binding IsLinked, Converter={StaticResource LText}}"
+                                                       Foreground="{Binding IsLinked, Converter={StaticResource LBrush}}"/>
+                                        </StackPanel>
+                                        <!-- Col2 : Grid à largeurs fixes → pas de débordement sur le texte -->
+                                        <Grid Grid.Column="2" VerticalAlignment="Stretch">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="54"/>  <!-- toggle hit area -->
+                                                <ColumnDefinition Width="34"/>  <!-- 🔗 -->
+                                                <ColumnDefinition Width="34"/>  <!-- ✏ -->
+                                                <ColumnDefinition Width="34"/>  <!-- ✕ -->
+                                                <ColumnDefinition Width="6"/>   <!-- marge droite -->
+                                            </Grid.ColumnDefinitions>
+                                            <!-- Toggle : zone 54×full-height, visuel 46×26 centré -->
+                                            <Button Grid.Column="0"
+                                                    Width="54" VerticalAlignment="Stretch"
+                                                    Cursor="Hand" Padding="0" Margin="0,0,4,0"
+                                                    ToolTip="Activer / désactiver" Click="Toggle_Click">
+                                                <Button.Template>
+                                                    <ControlTemplate TargetType="Button">
+                                                        <Grid Background="Transparent">
+                                                            <Grid Width="46" Height="26"
+                                                                  HorizontalAlignment="Center"
+                                                                  VerticalAlignment="Center">
+                                                                <Border x:Name="Track" CornerRadius="13"
+                                                                        Background="#B8A888" BorderBrush="#9C8E7E" BorderThickness="1"/>
+                                                                <Border x:Name="ThumbOff" Width="20" Height="20" CornerRadius="10"
+                                                                        Background="#E8DDD0" HorizontalAlignment="Left"
+                                                                        Margin="3,0,0,0" VerticalAlignment="Center"/>
+                                                                <Border x:Name="ThumbOn" Width="20" Height="20" CornerRadius="10"
+                                                                        Background="White" HorizontalAlignment="Right"
+                                                                        Margin="0,0,3,0" VerticalAlignment="Center"
+                                                                        Visibility="Collapsed"/>
+                                                            </Grid>
+                                                        </Grid>
+                                                        <ControlTemplate.Triggers>
+                                                            <DataTrigger Binding="{Binding Enabled}" Value="True">
+                                                                <Setter TargetName="Track"    Property="Background"  Value="#19B88A"/>
+                                                                <Setter TargetName="Track"    Property="BorderBrush" Value="#0F8F6D"/>
+                                                                <Setter TargetName="ThumbOff" Property="Visibility"  Value="Collapsed"/>
+                                                                <Setter TargetName="ThumbOn"  Property="Visibility"  Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Button.Template>
+                                            </Button>
+                                            <Button Grid.Column="1" Style="{StaticResource BtnGhost}"
+                                                    Width="30" Height="30" VerticalAlignment="Center"
+                                                    Padding="0" ToolTip="Lier une fenêtre" Click="Pick_Click">🔗</Button>
+                                            <Button Grid.Column="2" Style="{StaticResource BtnGhost}"
+                                                    Width="30" Height="30" VerticalAlignment="Center"
+                                                    Padding="0" ToolTip="Modifier" Click="Edit_Click">✏</Button>
+                                            <Button Grid.Column="3" Style="{StaticResource BtnDanger}"
+                                                    Width="30" Height="30" VerticalAlignment="Center"
+                                                    Padding="0" ToolTip="Supprimer" Click="Del_Click">✕</Button>
+                                        </Grid>
+                                    </Grid>
+                                </Border>
+                              </Border>
+                              <DataTemplate.Triggers>
+                                <!-- Carte en cours de déplacement : halo turquoise + relief -->
+                                <DataTrigger Binding="{Binding IsDragging}" Value="True">
+                                  <Setter TargetName="DragHost" Property="BorderBrush" Value="#0F8F6D"/>
+                                  <Setter TargetName="DragHost" Property="Background"  Value="#19B88A"/>
+                                  <!-- Pas de mise à l'échelle : la carte déborderait de la
+                                       liste. Ombre courte, contenue dans la marge de 8px. -->
+                                  <Setter TargetName="DragHost" Property="Effect">
+                                    <Setter.Value>
+                                      <DropShadowEffect Color="#0F8F6D" Opacity="0.45"
+                                                        BlurRadius="8" ShadowDepth="0"/>
+                                    </Setter.Value>
+                                  </Setter>
+                                </DataTrigger>
+                              </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </ScrollViewer>
+            </Grid>
+        </Grid>
+
+        <!-- PERSOS HORS LIGNE — repliable, visible seulement s'il y en a.
+             Sans ça, un perso dont la fenêtre n'est pas ouverte n'apparaît nulle part
+             et ne peut donc jamais être supprimé. -->
+        <Border Grid.Row="4" Background="#E0D8CA" BorderBrush="#B8A888" BorderThickness="0,1,0,0"
+                Visibility="{Binding OfflineCharacters.Count, Converter={StaticResource HIVis}}">
+            <StackPanel Margin="12,6,12,8">
+                <!-- Déplié quand des comptes sont ouverts à côté (= vrais restes à
+                     nettoyer), replié quand Dofus est fermé (tout le roster est
+                     hors ligne, c'est normal). Repliable/dépliable à la main. -->
+                <ToggleButton x:Name="OfflineToggle" IsChecked="{Binding HasLinked, Mode=OneWay}"
+                              Cursor="Hand" HorizontalAlignment="Left"
+                              Background="Transparent" BorderThickness="0" Padding="0">
+                    <ToggleButton.Template>
+                        <ControlTemplate TargetType="ToggleButton">
+                            <Border Background="Transparent" Padding="2,3">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock x:Name="Chev" Text="▸" FontSize="11" Margin="0,0,6,0"
+                                               VerticalAlignment="Center" Foreground="#9C7A58"/>
+                                    <TextBlock FontSize="11" Foreground="#9C7A58" VerticalAlignment="Center">
+                                        <Run Text="Personnages hors ligne ("/><Run Text="{Binding OfflineCharacters.Count, Mode=OneWay}"/><Run Text=")  ·  aucune fenêtre ouverte"/>
+                                    </TextBlock>
+                                </StackPanel>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="Chev" Property="Text" Value="▾"/>
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Chev" Property="Foreground" Value="#6B3516"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </ToggleButton.Template>
+                </ToggleButton>
+                <ScrollViewer MaxHeight="160" VerticalScrollBarVisibility="Auto" Margin="0,6,0,0"
+                              Visibility="{Binding IsChecked, ElementName=OfflineToggle, Converter={StaticResource BVis}}">
+                    <ItemsControl ItemsSource="{Binding OfflineCharacters}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="#EDE6D8" CornerRadius="10" Padding="10,6" Margin="0,0,0,5"
+                                        BorderBrush="#D0C9B8" BorderThickness="1">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding Name}" VerticalAlignment="Center"
+                                                   FontSize="12" FontWeight="SemiBold" Foreground="#6B3516"
+                                                   TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}"/>
+                                        <Border Grid.Column="1" CornerRadius="10" Padding="6,2" Margin="8,0,0,0"
+                                                VerticalAlignment="Center" Opacity="0.75"
+                                                Background="{Binding ClassColor, Converter={StaticResource HexBrush}}"
+                                                Visibility="{Binding ClassName, Converter={StaticResource NVis}}">
+                                            <TextBlock Text="{Binding ClassName}" FontSize="10" Foreground="White"/>
+                                        </Border>
+                                        <Button Grid.Column="2" Style="{StaticResource BtnDanger}"
+                                                Width="32" Height="32" Padding="0" Margin="10,0,0,0"
+                                                ToolTip="Supprimer définitivement ce personnage"
+                                                Click="Del_Click">✕</Button>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </StackPanel>
+        </Border>
+
+        <!-- FOOTER -->
+        <Border Grid.Row="5" Padding="8,8" BorderBrush="#B8A888" BorderThickness="0,2,0,0"
+                Visibility="{Binding LinkedCharacters.Count, Converter={StaticResource HIVis}}">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="#E0D8CA" Offset="0"/>
+                    <GradientStop Color="#D9D2C3" Offset="1"/>
+                </LinearGradientBrush>
+            </Border.Background>
+            <!-- 4 colonnes : ◀ | badge-nom (s'étire) | ▶ | ⊞ -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>   <!-- ◀ -->
+                    <ColumnDefinition Width="*"/>      <!-- badge nom, s'étire mais ne déborde pas -->
+                    <ColumnDefinition Width="Auto"/>   <!-- ▶ -->
+                    <ColumnDefinition Width="Auto"/>   <!-- ⊞ -->
+                </Grid.ColumnDefinitions>
+
+                <!-- ◀ Précédent -->
+                <Button Grid.Column="0" Style="{StaticResource BtnGhost}" Padding="10,0"
+                        Click="Prev_Click" ToolTip="Précédent (Alt+←)">◀</Button>
+
+                <!-- Badge : icône + nom (s'adapte à l'espace dispo) -->
+                <Border Grid.Column="1" Background="#EDE6D8" CornerRadius="10" Padding="8,6"
+                        Margin="6,0" BorderBrush="#B8A888" BorderThickness="1.5">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <!-- Icône classe -->
+                        <Border Width="24" Height="24" CornerRadius="12" Margin="0,0,7,0"
+                                VerticalAlignment="Center"
+                                Background="{Binding Current.ClassColor, Converter={StaticResource HexBrush}, FallbackValue=&apos;#B8A888&apos;}">
+                            <Grid>
+                                <Image Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Source="{Binding Current.ClassIconPath, Converter={StaticResource PathToImg}}"
+                                       Visibility="{Binding Current.ClassIconPath, Converter={StaticResource PathToImg}, ConverterParameter=vis}"/>
+                                <TextBlock Text="{Binding Current.ClassInitial, FallbackValue=&apos;?&apos;}"
+                                           FontSize="11" FontWeight="Bold" Foreground="White"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Visibility="{Binding Current.ClassIconPath, Converter={StaticResource PathToImg}, ConverterParameter=inv}"/>
+                            </Grid>
+                        </Border>
+                        <!-- Nom tronqué si trop long -->
+                        <TextBlock FontSize="12" FontWeight="SemiBold"
+                                   Foreground="#6B3516" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"
+                                   Text="{Binding Current.Name, FallbackValue=&apos;—&apos;}"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- ▶ Suivant -->
+                <Button Grid.Column="2" Style="{StaticResource BtnGhost}" Padding="10,0"
+                        Click="Next_Click" ToolTip="Suivant (Alt+→)">▶</Button>
+
+                <!-- ⊞ Réordonner taskbar -->
+                <Button Grid.Column="3" Style="{StaticResource BtnGhost}"
+                        Padding="11,0" Margin="6,0,0,0" FontSize="14" Foreground="#0F8F6D"
+                        Command="{Binding ReorderTaskbarCommand}"
+                        IsEnabled="{Binding Reordering, Converter={StaticResource IBool}}"
+                        ToolTip="Réordonner la barre des tâches selon l&apos;ordre d&apos;initiative">⊞</Button>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

@@ -1,0 +1,65 @@
+<Window x:Class="Altechap.Views.UpdateDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Mise à jour d'Altéchap" Height="420" Width="440"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Background="#D9D2C3" Foreground="#2D1A00">
+
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- En-tête -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
+            <Border Width="40" Height="40" CornerRadius="20" Background="#C8E8DF"
+                    Margin="0,0,12,0" VerticalAlignment="Center">
+                <TextBlock Text="⬆" FontSize="20" Foreground="#0F7A5C"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock x:Name="TxtTitle" Text="Une nouvelle version est disponible"
+                           FontSize="14" FontWeight="Bold" Foreground="#6B3516"/>
+                <TextBlock x:Name="TxtVersions" FontSize="11" Foreground="#8C7355"/>
+            </StackPanel>
+        </StackPanel>
+
+        <TextBlock Grid.Row="1" Text="Nouveautés" FontSize="12" FontWeight="SemiBold"
+                   Foreground="#6B3516" Margin="0,0,0,4"/>
+
+        <!-- Notes de version -->
+        <Border Grid.Row="2" Background="#EDE6D8" CornerRadius="10"
+                BorderBrush="#B8A888" BorderThickness="1.5" Padding="10,8">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <TextBlock x:Name="TxtNotes" TextWrapping="Wrap" FontSize="11.5"
+                           Foreground="#2D1A00" LineHeight="17"/>
+            </ScrollViewer>
+        </Border>
+
+        <!-- Progression (masquée tant que le téléchargement n'a pas démarré) -->
+        <StackPanel Grid.Row="3" x:Name="ProgressArea" Visibility="Collapsed" Margin="0,10,0,0">
+            <TextBlock x:Name="TxtProgress" FontSize="11" Foreground="#8C7355" Margin="0,0,0,4"/>
+            <ProgressBar x:Name="Bar" Height="8" Minimum="0" Maximum="1"
+                         Background="#EDE6D8" Foreground="#19B88A" BorderThickness="0"/>
+        </StackPanel>
+
+        <!-- Boutons -->
+        <StackPanel Grid.Row="4" x:Name="ButtonArea" Orientation="Horizontal"
+                    HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button x:Name="BtnSkip" Content="Ignorer cette version" Click="Skip_Click"
+                    Template="{StaticResource RB}" Background="Transparent" Foreground="#8C7355"
+                    FontSize="11" Padding="8,0" Height="32" Margin="0,0,6,0" Cursor="Hand"/>
+            <Button x:Name="BtnLater" Content="Plus tard" Click="Later_Click"
+                    Template="{StaticResource RB}" Background="#C4B89A" Foreground="#2D1A00"
+                    Padding="12,0" Height="32" Margin="0,0,8,0" Cursor="Hand"/>
+            <Button x:Name="BtnInstall" Content="Installer et redémarrer" Click="Install_Click"
+                    Template="{StaticResource RB}" Background="#19B88A" Foreground="White"
+                    FontWeight="SemiBold" Padding="12,0" Height="32" Cursor="Hand"/>
+        </StackPanel>
+    </Grid>
+</Window>
