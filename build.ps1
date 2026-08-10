@@ -46,17 +46,26 @@ function Ok($msg)   { Write-Host "  OK  $msg" -ForegroundColor Green }
 
 # ── 1. Version ───────────────────────────────────────────────────────────────
 Step 'Version'
-$xml = [xml](Get-Content $csproj -Raw)
-$node = $xml.Project.PropertyGroup | Where-Object { $_.Version } | Select-Object -First 1
+# Édition textuelle plutôt que XmlDocument : Get-Content lit en ANSI sous
+# Windows PowerShell et Save() réencode tout le fichier — les accents des
+# commentaires du .csproj y passaient. Ici on ne touche qu'à la balise Version,
+# octet pour octet, encodage d'origine préservé.
+$utf8   = [System.Text.UTF8Encoding]::new($false)
+$csPath = (Resolve-Path $csproj).Path
+$text   = [System.IO.File]::ReadAllText($csPath, $utf8)
+
+if ($text -notmatch '<Version>([^<]+)</Version>') { throw "Balise <Version> introuvable dans $csproj" }
 
 if ($Version) {
     if ($Version -notmatch '^\d+\.\d+\.\d+$') { throw "Version « $Version » invalide : attendu X.Y.Z" }
-    $node.Version = $Version
-    # Save() sur un chemin relatif écrirait ailleurs : on force l'absolu.
-    $xml.Save((Resolve-Path $csproj).Path)
+    # Instance plutôt que [regex]::Replace : seule la surcharge d'instance
+    # accepte un nombre maximum de remplacements.
+    $rx   = [regex]::new('<Version>[^<]+</Version>')
+    $text = $rx.Replace($text, "<Version>$Version</Version>", 1)
+    [System.IO.File]::WriteAllText($csPath, $text, $utf8)
     Ok "Altechap.csproj mis à jour → $Version"
 } else {
-    $Version = $node.Version
+    $Version = $Matches[1]
 }
 Ok "Version cible : $Version"
 
@@ -121,8 +130,25 @@ if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
 $tag = "v$Version"
 # $args est une variable automatique de PowerShell : la réutiliser casse le splat.
 $ghArgs = @('release', 'create', $tag, $setup, '--title', "Altéchap $tag")
-if ($Notes) { $ghArgs += @('--notes', $Notes) } else { $ghArgs += '--generate-notes' }
 
-& gh @ghArgs
-if ($LASTEXITCODE -ne 0) { throw "gh release create a échoué (le tag $tag existe déjà ?)." }
+# Notes passées par fichier : Windows PowerShell découpe un argument natif
+# multi-ligne, et gh interprète alors les morceaux comme des noms d'assets
+# (« no matches found for … »). Un fichier UTF-8 évite aussi que les accents
+# arrivent mutilés sur la page de release.
+$notesFile = $null
+if ($Notes) {
+    $notesFile = Join-Path ([System.IO.Path]::GetTempPath()) "altechap-notes-$Version.md"
+    [System.IO.File]::WriteAllText($notesFile, $Notes, [System.Text.UTF8Encoding]::new($false))
+    $ghArgs += @('--notes-file', $notesFile)
+} else {
+    $ghArgs += '--generate-notes'
+}
+
+try {
+    & gh @ghArgs
+    if ($LASTEXITCODE -ne 0) { throw "gh release create a échoué (le tag $tag existe déjà ?)." }
+}
+finally {
+    if ($notesFile -and (Test-Path $notesFile)) { Remove-Item $notesFile -Force }
+}
 Ok "Release $tag publiée — les clients la verront au prochain démarrage."

@@ -1,6 +1,6 @@
 # Altéchap — État de l'application (Windows)
 
-> Document de référence de l'état **actuel** du code (v2.0.0, 10/08/2026).
+> Document de référence de l'état **actuel** du code (v2.0.1, 10/08/2026).
 > Décrit ce que fait l'app aujourd'hui ; l'historique des corrections est en §10.
 
 ---
