@@ -188,39 +188,22 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         return true;
     }
 
-    public void NavigateNext()
+    /// <summary>Suivant dans l'ordre d'initiative (haut → bas).</summary>
+    public void NavigateNext() => NavigateBy(+1);
+
+    /// <summary>Précédent dans l'ordre d'initiative (bas → haut).</summary>
+    public void NavigatePrev() => NavigateBy(-1);
+
+    private void NavigateBy(int step)
     {
         // Repartir de la fenêtre affichée, pas du dernier saut enregistré.
         SyncCurrentFromForeground();
 
-        // Naviguer vers le SUIVANT dans la liste d'initiative (haut → bas)
-        // Seuls les personnages actifs (Enabled) ET liés sont pris en compte
-        var enabled = Characters.Where(c => c.Enabled && c.IsLinked).ToList();
-        if (enabled.Count == 0) enabled = Characters.Where(c => c.Enabled).ToList();
-        if (enabled.Count == 0) return;
+        var target = Navigation.Neighbour(Characters, _currentId, step);
+        if (target == null) return;
 
-        int cur  = enabled.FindIndex(c => c.Id == _currentId);
-        // Si le courant n'est pas dans la liste (ex: vient d'être désactivé), partir de -1
-        // pour que next = 0 (premier de la liste)
-        int next = (cur + 1) % enabled.Count;
-        SetCurrent(enabled[next]);
-        WindowScanner.Focus(enabled[next]);
-    }
-
-    public void NavigatePrev()
-    {
-        SyncCurrentFromForeground();
-
-        // Naviguer vers le PRÉCÉDENT dans la liste d'initiative (bas → haut)
-        var enabled = Characters.Where(c => c.Enabled && c.IsLinked).ToList();
-        if (enabled.Count == 0) enabled = Characters.Where(c => c.Enabled).ToList();
-        if (enabled.Count == 0) return;
-
-        int cur  = enabled.FindIndex(c => c.Id == _currentId);
-        if (cur < 0) cur = 0; // si courant absent, partir du début
-        int prev = (cur - 1 + enabled.Count) % enabled.Count;
-        SetCurrent(enabled[prev]);
-        WindowScanner.Focus(enabled[prev]);
+        SetCurrent(target);
+        WindowScanner.Focus(target);
     }
 
     [RelayCommand]
