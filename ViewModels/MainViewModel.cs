@@ -165,8 +165,34 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     }
 
     // ── Navigation ────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Aligne le personnage courant sur la fenêtre réellement au premier plan.
+    ///
+    /// Sans ça, l'application ne connaissait que les déplacements qu'elle avait
+    /// elle-même provoqués : cliquer une fenêtre à la souris la laissait sur son
+    /// dernier index connu, et la navigation suivante repartait de cet index
+    /// fantôme au lieu de l'écran affiché. Retourne vrai si le courant a bougé.
+    /// </summary>
+    private bool SyncCurrentFromForeground()
+    {
+        var fg = Win32.GetForegroundWindow();
+        if (fg == 0) return false;
+
+        // Fenêtre étrangère (Altéchap, navigateur, autre jeu) : on conserve le
+        // dernier personnage connu plutôt que de perdre le fil.
+        var ch = Characters.FirstOrDefault(c => c.Handle == fg);
+        if (ch == null || ch.Id == _currentId) return false;
+
+        SetCurrent(ch);
+        return true;
+    }
+
     public void NavigateNext()
     {
+        // Repartir de la fenêtre affichée, pas du dernier saut enregistré.
+        SyncCurrentFromForeground();
+
         // Naviguer vers le SUIVANT dans la liste d'initiative (haut → bas)
         // Seuls les personnages actifs (Enabled) ET liés sont pris en compte
         var enabled = Characters.Where(c => c.Enabled && c.IsLinked).ToList();
@@ -183,6 +209,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     public void NavigatePrev()
     {
+        SyncCurrentFromForeground();
+
         // Naviguer vers le PRÉCÉDENT dans la liste d'initiative (bas → haut)
         var enabled = Characters.Where(c => c.Enabled && c.IsLinked).ToList();
         if (enabled.Count == 0) enabled = Characters.Where(c => c.Enabled).ToList();
@@ -480,6 +508,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         // Toujours reconstruire la vue filtrée (même sans changement structurel,
         // un handle qui vient d'être assigné doit apparaître)
         RebuildLinkedCharacters();
+
+        // Le pied de fenêtre doit désigner le personnage sous les yeux de
+        // l'utilisateur, y compris quand il change de fenêtre à la souris.
+        SyncCurrentFromForeground();
 
         return changed;
     }
