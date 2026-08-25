@@ -106,9 +106,23 @@ critique — c'est l'objet de `CharacterIdentity` (§4) et des tests (§9).
 - `RebuildLinkedCharacters()` reconstruit sans rebuild destructif (pas de flicker)
   les deux vues : `LinkedCharacters` (fenêtre ouverte) et `OfflineCharacters`.
 
-### Navigation
-`NavigateNext` / `NavigatePrev` parcourent les persos `Enabled && IsLinked`
-(repli sur `Enabled` seul si aucun n'est lié), changent `Current` et focalisent.
+### Navigation (`Services/Navigation.cs` — pure, testée)
+`NavigateNext` / `NavigatePrev` délèguent à `Navigation.Neighbour(all, currentId, ±1)`,
+qui parcourt les persos `Enabled && IsLinked` (repli sur `Enabled` seul si aucun
+n'est lié), puis `SetCurrent` + focus.
+
+**Le point de départ est la fenêtre réellement au premier plan**, pas le dernier
+saut enregistré : `SyncCurrentFromForeground()` interroge `GetForegroundWindow`
+avant chaque navigation. Sans ça, `_currentId` n'était écrit que par l'app
+elle-même — un changement de fenêtre à la souris passait inaperçu et la macro
+suivante repartait d'un index fantôme. Une fenêtre étrangère au premier plan
+(Altéchap, navigateur) laisse le dernier personnage connu en place.
+
+**Un courant non navigable garde sa place** : cliquer une fenêtre désactivée
+dans le profil, ou dont le client vient de fermer, ne renvoie pas au premier de
+la liste. `Neighbour` se rabat sur la position du personnage dans l'ordre
+d'initiative **complet** et balaie dans le sens demandé jusqu'au premier
+navigable — depuis un 4 désactivé, « suivant » donne le 5 et « précédent » le 3.
 
 ### Activation (`SetEnabled`)
 - OFF → minimise la fenêtre **sans voler le focus** (`MinimizeNoFocus`).
@@ -239,6 +253,7 @@ Altechap/
 ├── Services/
 │   ├── WindowScanner.cs             — EnumWindows + parsing de titre
 │   ├── CharacterIdentity.cs         — identité perso ↔ fenêtre + migration (pur, testé)
+│   ├── Navigation.cs                — cible des macros suivant/précédent (pur, testé)
 │   ├── HotkeyService.cs             — RegisterHotKey / WM_HOTKEY / validation
 │   ├── StorageService.cs            — JSON atomique + repli .bak
 │   ├── IconCacheService.cs          — extraction des icônes embarquées, réseau en secours
@@ -256,7 +271,7 @@ Altechap/
 │   ├── Altechap.iss                 — script Inno Setup 6
 │   └── README.md                    — procédure de diffusion et de publication
 ├── build.ps1                        — publish → installeur → release GitHub
-└── Tests/                           — xUnit, 43 cas
+└── Tests/                           — xUnit, 55 cas
 ```
 
 **Total** : ~2 900 lignes de C# applicatif + ~1 070 lignes de XAML + ~300 lignes de tests.
@@ -269,8 +284,8 @@ Altechap/
 dotnet test Tests/Altechap.Tests.csproj
 ```
 
-43 cas, sur la logique **pure** extraite dans `CharacterIdentity`, `WindowScanner`
-et `UpdateService` :
+55 cas, sur la logique **pure** extraite dans `CharacterIdentity`, `WindowScanner`,
+`UpdateService` et `Navigation` :
 
 - **Analyse des titres** : client actuel et ancien, écran de chargement, `Cra`/`Crâ`.
 - **Association fenêtre ↔ perso** : pseudo exact, préfixe commun (`Kaguya`/`Kaguya2`),
@@ -279,6 +294,9 @@ et `UpdateService` :
   porteur du raccourci conservé en priorité, noms auto-découverts jamais fusionnés.
 - **Comparaison de versions** : tags `v2.1.0` / `2.1` / `2.1.0-rc1`, rejet des tags
   non numériques (`latest`), une version égale ou antérieure ne déclenche rien.
+- **Navigation** : pas d'un cran et bouclage aux extrémités ; départ depuis un
+  personnage désactivé ou dont la fenêtre est fermée ; plusieurs désactivés
+  consécutifs enjambés ; roster sans aucun navigable ; courant inconnu.
 
 `Tests/**` est exclu du glob de compilation d'`Altechap.csproj` (sans quoi les tests
 seraient compilés dans l'application).

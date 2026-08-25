@@ -165,34 +165,45 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     }
 
     // ── Navigation ────────────────────────────────────────────────────────
-    public void NavigateNext()
-    {
-        // Naviguer vers le SUIVANT dans la liste d'initiative (haut → bas)
-        // Seuls les personnages actifs (Enabled) ET liés sont pris en compte
-        var enabled = Characters.Where(c => c.Enabled && c.IsLinked).ToList();
-        if (enabled.Count == 0) enabled = Characters.Where(c => c.Enabled).ToList();
-        if (enabled.Count == 0) return;
 
-        int cur  = enabled.FindIndex(c => c.Id == _currentId);
-        // Si le courant n'est pas dans la liste (ex: vient d'être désactivé), partir de -1
-        // pour que next = 0 (premier de la liste)
-        int next = (cur + 1) % enabled.Count;
-        SetCurrent(enabled[next]);
-        WindowScanner.Focus(enabled[next]);
+    /// <summary>
+    /// Aligne le personnage courant sur la fenêtre réellement au premier plan.
+    ///
+    /// Sans ça, l'application ne connaissait que les déplacements qu'elle avait
+    /// elle-même provoqués : cliquer une fenêtre à la souris la laissait sur son
+    /// dernier index connu, et la navigation suivante repartait de cet index
+    /// fantôme au lieu de l'écran affiché. Retourne vrai si le courant a bougé.
+    /// </summary>
+    private bool SyncCurrentFromForeground()
+    {
+        var fg = Win32.GetForegroundWindow();
+        if (fg == 0) return false;
+
+        // Fenêtre étrangère (Altéchap, navigateur, autre jeu) : on conserve le
+        // dernier personnage connu plutôt que de perdre le fil.
+        var ch = Characters.FirstOrDefault(c => c.Handle == fg);
+        if (ch == null || ch.Id == _currentId) return false;
+
+        SetCurrent(ch);
+        return true;
     }
 
-    public void NavigatePrev()
-    {
-        // Naviguer vers le PRÉCÉDENT dans la liste d'initiative (bas → haut)
-        var enabled = Characters.Where(c => c.Enabled && c.IsLinked).ToList();
-        if (enabled.Count == 0) enabled = Characters.Where(c => c.Enabled).ToList();
-        if (enabled.Count == 0) return;
+    /// <summary>Suivant dans l'ordre d'initiative (haut → bas).</summary>
+    public void NavigateNext() => NavigateBy(+1);
 
-        int cur  = enabled.FindIndex(c => c.Id == _currentId);
-        if (cur < 0) cur = 0; // si courant absent, partir du début
-        int prev = (cur - 1 + enabled.Count) % enabled.Count;
-        SetCurrent(enabled[prev]);
-        WindowScanner.Focus(enabled[prev]);
+    /// <summary>Précédent dans l'ordre d'initiative (bas → haut).</summary>
+    public void NavigatePrev() => NavigateBy(-1);
+
+    private void NavigateBy(int step)
+    {
+        // Repartir de la fenêtre affichée, pas du dernier saut enregistré.
+        SyncCurrentFromForeground();
+
+        var target = Navigation.Neighbour(Characters, _currentId, step);
+        if (target == null) return;
+
+        SetCurrent(target);
+        WindowScanner.Focus(target);
     }
 
     [RelayCommand]
@@ -480,6 +491,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         // Toujours reconstruire la vue filtrée (même sans changement structurel,
         // un handle qui vient d'être assigné doit apparaître)
         RebuildLinkedCharacters();
+
+        // Le pied de fenêtre doit désigner le personnage sous les yeux de
+        // l'utilisateur, y compris quand il change de fenêtre à la souris.
+        SyncCurrentFromForeground();
 
         return changed;
     }
