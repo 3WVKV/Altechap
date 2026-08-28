@@ -496,6 +496,11 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         // l'utilisateur, y compris quand il change de fenêtre à la souris.
         SyncCurrentFromForeground();
 
+        // Filet de sécurité des raccourcis globaux : si l'état des inscriptions
+        // a divergé de la réalité (Deactivated manqué en masquant la fenêtre),
+        // il se répare ici au lieu de rester faux jusqu'à la fin de la session.
+        Hotkeys.Reconcile();
+
         return changed;
     }
 

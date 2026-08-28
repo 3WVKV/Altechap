@@ -82,9 +82,15 @@ public sealed class HotkeyService : IDisposable
         _source = HwndSource.FromHwnd(_hwnd);
         _source?.AddHook(WndProc);
 
-        // Pause auto quand l'app prend le focus
-        window.Activated   += (_, _) => Pause();
-        window.Deactivated += (_, _) => Resume();
+        // Activated/Deactivated donnent la réaction immédiate, mais ne sont pas
+        // fiables à eux seuls : masquer une fenêtre active (✕ ou raccourci
+        // afficher/masquer) ne garantit pas de Deactivated. On passe donc par
+        // Reconcile, qui relit l'état réel au lieu de tenir un compteur.
+        window.Activated        += (_, _) => Reconcile();
+        window.Deactivated      += (_, _) => Reconcile();
+        // Couvre explicitement le chemin Hide() : la visibilité change même
+        // quand l'activation, elle, ne bouge pas.
+        window.IsVisibleChanged += (_, _) => Reconcile();
     }
 
     // ── Appliquer config ────────────────────────────────────────────────
@@ -94,6 +100,9 @@ public sealed class HotkeyService : IDisposable
         _currentChars  = chars;
         Reload();
     }
+
+    /// <summary>Dernier ensemble d'échecs journalisé — évite de répéter la même ligne à chaque focus.</summary>
+    private string _lastLoggedFailures = string.Empty;
 
     private void Reload()
     {
@@ -126,6 +135,26 @@ public sealed class HotkeyService : IDisposable
                 i++;
             }
         }
+
+        LogFailures();
+    }
+
+    /// <summary>
+    /// Un raccourci refusé par Windows ne se voyait nulle part : ni à l'écran, ni
+    /// dans le journal. Un conflit apparu en cours de session (une autre
+    /// application s'empare de la combinaison) restait donc indiagnosticable.
+    /// On ne trace que les changements, Reload étant appelé à chaque focus.
+    /// </summary>
+    private void LogFailures()
+    {
+        var current = _failed.Count == 0 ? string.Empty : string.Join(", ", _failed);
+        if (current == _lastLoggedFailures) return;
+        _lastLoggedFailures = current;
+
+        if (current.Length > 0)
+            Log.Warn($"Raccourcis refusés par Windows : {current} — déjà pris par une autre application ?");
+        else
+            Log.Info("Raccourcis : toutes les combinaisons sont de nouveau inscrites.");
     }
 
     private void Reg(int id, string hotkey)
@@ -167,6 +196,32 @@ public sealed class HotkeyService : IDisposable
         // Remettre en état cohérent : si Altéchap a le focus → pause
         // Si non → actif
         if (_paused) { _paused = false; Reload(); }
+    }
+
+    /// <summary>
+    /// Aligne l'état des inscriptions sur la réalité : les raccourcis de
+    /// navigation sont en pause si et seulement si Altéchap est la fenêtre au
+    /// premier plan. Idempotent — ne touche à rien quand l'état est déjà bon.
+    ///
+    /// C'est le filet de sécurité du service. Auparavant, <c>_paused</c> n'était
+    /// écrit que par Activated/Deactivated ; masquer la fenêtre pendant qu'elle
+    /// était active pouvait laisser le booléen bloqué à vrai, et les raccourcis
+    /// désinscrits pour le reste de la session. Rien ne le corrigeait jamais, et
+    /// il fallait rouvrir puis refermer Altéchap pour provoquer le Deactivated
+    /// manquant. Appelé aussi à chaque scan (§ watcher), l'écart se répare seul.
+    /// </summary>
+    public void Reconcile()
+    {
+        // Pendant une capture de touche ou un réordonnancement, l'état voulu est
+        // délibérément différent de l'état naturel : ne pas le contrarier.
+        if (_autoSuspended || _capturing) return;
+        if (_hwnd == nint.Zero) return;
+
+        bool shouldPause = Win32.GetForegroundWindow() == _hwnd;
+        if (shouldPause == _paused) return;
+
+        _paused = shouldPause;
+        Reload();
     }
 
     public void Pause()

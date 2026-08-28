@@ -124,6 +124,21 @@ la liste. `Neighbour` se rabat sur la position du personnage dans l'ordre
 d'initiative **complet** et balaie dans le sens demandé jusqu'au premier
 navigable — depuis un 4 désactivé, « suivant » donne le 5 et « précédent » le 3.
 
+### Raccourcis globaux (`Services/HotkeyService.cs`)
+`RegisterHotKey` / `WM_HOTKEY` sur le HWND de la fenêtre principale. Les
+raccourcis de navigation sont **désinscrits tant qu'Altéchap est au premier
+plan**, pour que ses propres champs de saisie reçoivent les touches ; seul
+« afficher/masquer » reste inscrit en permanence.
+
+Cet état ne se déduit plus des seuls événements de focus. `Reconcile()` compare
+`GetForegroundWindow()` au HWND et réinscrit ce qui doit l'être ; il est
+idempotent et appelé depuis `Activated`, `Deactivated`, `IsVisibleChanged` et
+chaque scan. Auparavant, masquer la fenêtre pendant qu'elle avait le focus
+pouvait laisser `_paused` bloqué à vrai : les macros restaient mortes jusqu'à ce
+que l'utilisateur rouvre puis referme Altéchap pour provoquer le `Deactivated`
+manquant. Les échecs de `RegisterHotKey` sont désormais journalisés au
+changement, au lieu d'être avalés en silence.
+
 ### Activation (`SetEnabled`)
 - OFF → minimise la fenêtre **sans voler le focus** (`MinimizeNoFocus`).
 - ON → restaure en arrière-plan (`ShowWithoutFocus`).
@@ -238,6 +253,12 @@ Fermer la fenêtre principale l'occulte (`Hide`) sans quitter l'application.
   un numéro de version serait pris pour un auto-découvert.
 - **`ScanAll`** tourne sur le thread appelant lors du `Init` initial ; le watcher et
   `ScanNow` sont bien dispatchés.
+- **État des raccourcis globaux** : la pause automatique repose sur `Activated` /
+  `Deactivated`, que WPF ne garantit pas quand la fenêtre est masquée alors
+  qu'elle est active. `HotkeyService.Reconcile()` relit `GetForegroundWindow` et
+  répare l'écart — appelé sur ces deux événements, sur `IsVisibleChanged`, et à
+  chaque scan du watcher. La correction est donc au pire différée de
+  `RefreshSeconds` (2s par défaut), jamais définitive.
 
 ---
 
